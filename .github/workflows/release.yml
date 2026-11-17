@@ -77,19 +77,21 @@ jobs:
     name: Publish Release to GitHub
     needs: [build-release]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: always() && (needs.build-release.result == 'success' || needs.build-release.result == 'failure') && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: kido2628-retail-win
           path: release-assets/
 
       - name: Download macOS Artifacts
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: kido2628-retail-mac
           path: release-assets/
@@ -98,6 +100,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release-assets/**/*
+          fail_on_unmatched_files: false
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v2.0.0' }}
           draft: false
           prerelease: false
