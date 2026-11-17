@@ -17,19 +17,12 @@ export interface CreateReturnInput {
 export class ReturnsService {
   static getNextReturnNo(): string {
     const db = getDb();
-    const rows = db.prepare('SELECT return_no FROM returns ORDER BY id DESC LIMIT 50').all() as { return_no: string }[];
-    let maxNum = 1000;
-    for (const r of rows) {
-      const match = r.return_no.match(/(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
-    }
+    const row = db.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(return_no, 5) AS INTEGER)), 1000) as max_num FROM returns WHERE return_no LIKE 'RET-%'").get() as any;
+    const maxNum = Math.max(1000, Number(row?.max_num) || 1000);
     return `RET-${maxNum + 1}`;
   }
 
-  static lookupInvoice(invoiceNo: string): { sale: Sale; itemsEligible: any[] } {
+  static lookupInvoice(invoiceNo: string): { sale: Sale; itemsEligible: any[]; remainingInvoiceRefund: number } {
     const db = getDb();
     const sale = SalesService.getByInvoiceNo(invoiceNo);
     if (!sale) {
@@ -50,10 +43,22 @@ export class ReturnsService {
       returnedMap.set(pr.sale_item_id, pr.returned_qty);
     }
 
+    // Calculate remaining refundable amount on this invoice
+    const previousRefundRow = db.prepare(`
+      SELECT COALESCE(SUM(total_refund), 0) as total_refunded
+      FROM returns
+      WHERE invoice_no COLLATE NOCASE = ? AND is_voided = 0
+    `).get(invoiceNo.trim()) as any;
+    const totalPreviousRefund = Number(previousRefundRow?.total_refunded) || 0;
+    const remainingInvoiceRefund = Math.max(0, Math.round((sale.grandTotal - totalPreviousRefund) * 100) / 100);
+
+    // Prorate bill-level discount across items so returns never refund more than customer actually paid
+    const billDiscountRatio = sale.subtotal > 0 ? (sale.grandTotal / sale.subtotal) : 1;
+
     const itemsEligible = (sale.items || []).map((item) => {
       const alreadyReturned = returnedMap.get(item.id!) || 0;
       const remainingQty = Math.max(0, item.quantity - alreadyReturned);
-      const effectiveUnitPrice = item.lineTotal / item.quantity;
+      const effectiveUnitPrice = Math.round(((item.lineTotal / item.quantity) * billDiscountRatio) * 100) / 100;
       return {
         saleItemId: item.id,
         productId: item.productId,
@@ -71,7 +76,7 @@ export class ReturnsService {
       };
     });
 
-    return { sale, itemsEligible };
+    return { sale, itemsEligible, remainingInvoiceRefund };
   }
 
   static create(input: CreateReturnInput): Return {
@@ -116,8 +121,8 @@ export class ReturnsService {
           );
         }
 
-        const refund = Math.max(0, Number(reqItem.refundAmount) || (eligible.effectiveUnitPrice * qtyToReturn));
-        totalRefund += refund;
+        const refund = Math.max(0, Math.round((Number(reqItem.refundAmount) || (eligible.effectiveUnitPrice * qtyToReturn)) * 100) / 100);
+        totalRefund = Math.round((totalRefund + refund) * 100) / 100;
 
         // If restock is true, increment variant stock and record audit
         if (reqItem.restock && eligible.variantId) {
@@ -174,14 +179,25 @@ export class ReturnsService {
         });
       }
 
+      if (totalRefund > lookup.remainingInvoiceRefund) {
+        throw new Error(
+          `Requested total refund (₹${totalRefund.toFixed(2)}) exceeds maximum remaining eligible amount on invoice "${sale.invoiceNo}" (₹${lookup.remainingInvoiceRefund.toFixed(2)}).`
+        );
+      }
+
+      // Check if an active register shift is currently open
+      const openShift = db.prepare("SELECT * FROM register_shifts WHERE status = 'OPEN' ORDER BY id DESC LIMIT 1").get() as any;
+      const shiftId = openShift ? openShift.id : null;
+
       // Insert Return record
       const rResult = db.prepare(`
         INSERT INTO returns (
-          return_no, sale_id, invoice_no, customer_name, customer_mobile,
+          return_no, shift_id, sale_id, invoice_no, customer_name, customer_mobile,
           total_refund, reason, is_voided, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
       `).run(
         returnNo,
+        shiftId,
         sale.id,
         sale.invoiceNo,
         sale.customerName,
@@ -220,7 +236,6 @@ export class ReturnsService {
       }
 
       // Update active register shift with returns refunded
-      const openShift = db.prepare("SELECT * FROM register_shifts WHERE status = 'OPEN' ORDER BY id DESC LIMIT 1").get() as any;
       if (openShift) {
         db.prepare(`
           UPDATE register_shifts
@@ -249,6 +264,7 @@ export class ReturnsService {
     return {
       id: row.id,
       returnNo: row.return_no,
+      shiftId: row.shift_id ?? null,
       saleId: row.sale_id,
       invoiceNo: row.invoice_no,
       customerName: row.customer_name,
@@ -304,6 +320,7 @@ export class ReturnsService {
     return rows.map((r) => ({
       id: r.id,
       returnNo: r.return_no,
+      shiftId: r.shift_id ?? null,
       saleId: r.sale_id,
       invoiceNo: r.invoice_no,
       customerName: r.customer_name,
@@ -368,17 +385,19 @@ export class ReturnsService {
       // Mark return voided
       db.prepare('UPDATE returns SET is_voided = 1 WHERE id = ?').run(id);
 
-      // Revert register shift refund deduction if applicable
-      const openShift = db.prepare("SELECT * FROM register_shifts WHERE status = 'OPEN' ORDER BY id DESC LIMIT 1").get() as any;
-      if (openShift) {
-        db.prepare(`
-          UPDATE register_shifts
-          SET
-            total_returns_refunded = MAX(0, total_returns_refunded - ?),
-            net_sales = net_sales + ?,
-            expected_cash = expected_cash + ?
-          WHERE id = ?
-        `).run(ret.totalRefund, ret.totalRefund, ret.totalRefund, openShift.id);
+      // Revert register shift refund deduction ONLY if the return was logged during the currently active open shift
+      if (ret.shiftId) {
+        const openShift = db.prepare("SELECT * FROM register_shifts WHERE status = 'OPEN' AND id = ?").get(ret.shiftId) as any;
+        if (openShift) {
+          db.prepare(`
+            UPDATE register_shifts
+            SET
+              total_returns_refunded = MAX(0, total_returns_refunded - ?),
+              net_sales = net_sales + ?,
+              expected_cash = expected_cash + ?
+            WHERE id = ?
+          `).run(ret.totalRefund, ret.totalRefund, ret.totalRefund, openShift.id);
+        }
       }
 
       return {

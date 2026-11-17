@@ -1,6 +1,7 @@
 import { getDb } from '../db/database';
 import { StockTransaction } from '../db/schema';
 import { ProductsService } from './products.service';
+import { PurchasesService } from './purchases.service';
 
 export interface FastStockInInput {
   sku: string;
@@ -60,9 +61,8 @@ export class InventoryService {
       const supplierName = (input.supplier || '').trim() || 'Fast Intake';
       const unitCost = input.cost !== undefined && input.cost > 0 ? input.cost : product.costPrice;
 
-      // Create purchase inward row
-      const pCount = (db.prepare('SELECT COUNT(*) as count FROM purchases').get() as any).count;
-      const purchaseNo = `PO-${1000 + pCount + 1}`;
+      // Create purchase inward row using robust sequential sequence
+      const purchaseNo = PurchasesService.getNextPurchaseNo();
       const lineTotal = unitCost * qty;
 
       const pResult = db.prepare(`

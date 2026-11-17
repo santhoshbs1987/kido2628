@@ -5,16 +5,18 @@ import { CustomerLookup } from '../components/pos/CustomerLookup';
 import { SettlementPanel } from '../components/pos/SettlementPanel';
 import { VariantPickerModal } from '../components/pos/VariantPickerModal';
 import { ReceiptPreviewModal } from '../components/pos/ReceiptPreviewModal';
-import { Product, ProductVariant, Sale, ShopSettings } from '../types';
+import { Product, ProductVariant, Sale, ShopSettings, RegisterShift } from '../types';
 import { useCartStore } from '../stores/cartStore';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useUiStore } from '../stores/uiStore';
+import { AlertCircle } from 'lucide-react';
 
 interface PosPageProps {
   settings: ShopSettings | null;
+  activeShift?: RegisterShift | null;
 }
 
-export const PosPage: React.FC<PosPageProps> = ({ settings }) => {
+export const PosPage: React.FC<PosPageProps> = ({ settings, activeShift }) => {
   const [pickerProduct, setPickerProduct] = useState<Product | null>(null);
   const [showPicker, setShowPicker] = useState<boolean>(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
@@ -94,11 +96,31 @@ export const PosPage: React.FC<PosPageProps> = ({ settings }) => {
   return (
     <div className="flex-1 flex gap-4 p-4 overflow-hidden bg-slate-100">
       {/* Left Column: Barcode Scan, Cart Table, Customer info */}
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+      <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+        {!activeShift && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-2 rounded-xl text-xs flex items-center justify-between shrink-0 shadow-sm">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <b>Shift is Closed:</b> Register cash till is not currently tracking. Open a shift to balance opening float & cash sales.
+              </span>
+            </div>
+            <button
+              onClick={() => useUiStore.getState().setActivePage('shifts')}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors"
+            >
+              Open Shift (F6)
+            </button>
+          </div>
+        )}
+
         <ScanBar
           onOpenVariantPicker={(prod) => {
             setPickerProduct(prod);
             setShowPicker(true);
+          }}
+          onEmptyEnter={() => {
+            document.getElementById('saveAndPrintBtn')?.click();
           }}
         />
 

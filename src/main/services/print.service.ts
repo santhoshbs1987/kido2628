@@ -7,6 +7,16 @@ export interface PrintReceiptOptions {
   deviceName?: string;
 }
 
+function escapeHtml(str: any): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export class PrintService {
   static async printReceipt(sale: Sale, options?: PrintReceiptOptions): Promise<{ success: boolean; error?: string }> {
     const settings = SettingsService.get();
@@ -30,6 +40,17 @@ export class PrintService {
     await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHtml)}`);
 
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          try {
+            if (!printWin.isDestroyed()) printWin.destroy();
+          } catch (e) {}
+          resolve({ success: false, error: 'Print operation timed out.' });
+        }
+      }, 15000);
+
       printWin.webContents.print(
         {
           silent: isSilent,
@@ -38,11 +59,17 @@ export class PrintService {
           margins: { marginType: 'none' }
         },
         (success, failureReason) => {
-          printWin.destroy();
-          if (!success) {
-            resolve({ success: false, error: failureReason });
-          } else {
-            resolve({ success: true });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            try {
+              if (!printWin.isDestroyed()) printWin.destroy();
+            } catch (e) {}
+            if (!success) {
+              resolve({ success: false, error: failureReason });
+            } else {
+              resolve({ success: true });
+            }
           }
         }
       );
@@ -97,6 +124,17 @@ export class PrintService {
     await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`);
 
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          try {
+            if (!printWin.isDestroyed()) printWin.destroy();
+          } catch (e) {}
+          resolve({ success: false, error: 'Print operation timed out.' });
+        }
+      }, 15000);
+
       printWin.webContents.print(
         {
           silent: isSilent,
@@ -105,11 +143,17 @@ export class PrintService {
           margins: { marginType: 'none' }
         },
         (success, failureReason) => {
-          printWin.destroy();
-          if (!success) {
-            resolve({ success: false, error: failureReason });
-          } else {
-            resolve({ success: true });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            try {
+              if (!printWin.isDestroyed()) printWin.destroy();
+            } catch (e) {}
+            if (!success) {
+              resolve({ success: false, error: failureReason });
+            } else {
+              resolve({ success: true });
+            }
           }
         }
       );
@@ -128,9 +172,9 @@ export class PrintService {
         (i) => `
         <tr>
           <td style="text-align:left;padding:3px 0">
-            ${i.name}
-            ${i.size ? `<span style="font-size:9px"> · ${i.size}</span>` : ''}
-            ${i.color ? `<span style="font-size:9px"> · ${i.color}</span>` : ''}
+            ${escapeHtml(i.name)}
+            ${i.size ? `<span style="font-size:9px"> · ${escapeHtml(i.size)}</span>` : ''}
+            ${i.color ? `<span style="font-size:9px"> · ${escapeHtml(i.color)}</span>` : ''}
           </td>
           <td style="text-align:center;padding:3px 0">${i.quantity}</td>
           <td style="text-align:right;padding:3px 0">${money(i.lineTotal)}</td>
@@ -144,7 +188,7 @@ export class PrintService {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Receipt ${sale.invoiceNo}</title>
+        <title>Receipt ${escapeHtml(sale.invoiceNo)}</title>
         <style>
           @page {
             size: 72mm auto;
@@ -171,20 +215,20 @@ export class PrintService {
           <div style="font-size:16px;font-weight:900;letter-spacing:1px">
             <span style="color:#2563eb">KI</span><span style="color:#db2777">DO</span> <span style="color:#0284c7">26</span><span style="color:#9333ea">28</span>
           </div>
-          <div style="font-size:10px;font-weight:600;margin-top:2px">${settings.subtitle || 'Imported Korean Kids wear'}</div>
-          <div style="font-size:9px;margin-top:3px">${settings.address}</div>
-          <div style="font-size:9px">Ph: ${settings.phone1} / ${settings.phone2}</div>
+          <div style="font-size:10px;font-weight:600;margin-top:2px">${escapeHtml(settings.subtitle || 'Imported Korean Kids wear')}</div>
+          <div style="font-size:9px;margin-top:3px">${escapeHtml(settings.address || '')}</div>
+          <div style="font-size:9px">Ph: ${escapeHtml(settings.phone1 || '')} / ${escapeHtml(settings.phone2 || '')}</div>
         </div>
 
         <div class="divider"></div>
 
         <div style="font-size:10px">
           <div style="display:flex;justify-content:space-between">
-            <span><b>Bill:</b> ${sale.invoiceNo}</span>
-            <span><b>Date:</b> ${sale.createdAt.slice(0, 10)}</span>
+            <span><b>Bill:</b> ${escapeHtml(sale.invoiceNo)}</span>
+            <span><b>Date:</b> ${escapeHtml(sale.createdAt.slice(0, 10))}</span>
           </div>
-          ${sale.customerName ? `<div><b>Cust:</b> ${sale.customerName}</div>` : ''}
-          ${sale.customerMobile ? `<div><b>Mob:</b> ${sale.customerMobile}</div>` : ''}
+          ${sale.customerName ? `<div><b>Cust:</b> ${escapeHtml(sale.customerName)}</div>` : ''}
+          ${sale.customerMobile ? `<div><b>Mob:</b> ${escapeHtml(sale.customerMobile)}</div>` : ''}
         </div>
 
         <div class="divider"></div>
@@ -214,7 +258,7 @@ export class PrintService {
         <div class="divider"></div>
 
         <div class="text-center" style="font-size:10px">
-          <div>Payment Mode: <b>${sale.paymentMethod}</b></div>
+          <div>Payment Mode: <b>${escapeHtml(sale.paymentMethod)}</b></div>
           <div style="margin-top:6px;font-weight:600">Thank you for shopping with us!</div>
           <div style="font-size:8px;color:#444">Please retain receipt for exchange within 7 days.</div>
         </div>

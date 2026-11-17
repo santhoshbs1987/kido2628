@@ -20,15 +20,8 @@ export interface CreatePurchaseInput {
 export class PurchasesService {
   static getNextPurchaseNo(): string {
     const db = getDb();
-    const rows = db.prepare('SELECT purchase_no FROM purchases ORDER BY id DESC LIMIT 50').all() as { purchase_no: string }[];
-    let maxNum = 1000;
-    for (const r of rows) {
-      const match = r.purchase_no.match(/(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
-    }
+    const row = db.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(purchase_no, 4) AS INTEGER)), 1000) as max_num FROM purchases WHERE purchase_no LIKE 'PO-%'").get() as any;
+    const maxNum = Math.max(1000, Number(row?.max_num) || 1000);
     return `PO-${maxNum + 1}`;
   }
 
@@ -95,10 +88,11 @@ export class PurchasesService {
           variant.id
         );
 
-        // Update product cost price with weighted average
-        if (cost > 0 && product.costPrice > 0 && variant.currentStock > 0) {
+        // Update product cost price with weighted average across product's total inventory
+        const totalProductStock = variants.reduce((sum, v) => sum + (v.currentStock || 0), 0);
+        if (cost > 0 && product.costPrice > 0 && totalProductStock > 0) {
           const weightedCost = Math.round(
-            ((product.costPrice * variant.currentStock + cost * qty) / (variant.currentStock + qty)) * 100
+            ((product.costPrice * totalProductStock + cost * qty) / (totalProductStock + qty)) * 100
           ) / 100;
           db.prepare('UPDATE products SET cost_price = ?, updated_at = ? WHERE id = ?').run(
             weightedCost,

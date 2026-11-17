@@ -238,6 +238,21 @@ export function runMigrations(db: Database.Database): void {
           )
         `).run(now);
       }
+    },
+    {
+      version: 3,
+      name: 'add_shift_id_to_returns',
+      run: (db) => {
+        // Add shift_id to returns table if not exists
+        try {
+          db.exec(`
+            ALTER TABLE returns ADD COLUMN shift_id INTEGER REFERENCES register_shifts(id) ON DELETE SET NULL;
+            CREATE INDEX IF NOT EXISTS idx_returns_shift ON returns(shift_id);
+          `);
+        } catch (e: any) {
+          // Column may already exist
+        }
+      }
     }
   ];
 

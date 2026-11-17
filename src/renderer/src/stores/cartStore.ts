@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { CartItem } from '../types';
 
+export const roundMoney = (v: number): number => Math.round((v + Number.EPSILON) * 100) / 100;
+
 interface CartState {
   items: CartItem[];
   customerId: number | null;
@@ -54,13 +56,13 @@ export const useCartStore = create<CartState>((set, get) => ({
         updated[existingIdx] = {
           ...item,
           quantity: newQty,
-          lineTotal: Math.max(0, item.unitPrice * newQty - itemDiscount)
+          lineTotal: Math.max(0, roundMoney(item.unitPrice * newQty - itemDiscount))
         };
         return { items: updated };
       } else {
         const qty = newItem.quantity || 1;
         const discount = newItem.discount || 0;
-        const lineTotal = Math.max(0, newItem.unitPrice * qty - discount);
+        const lineTotal = Math.max(0, roundMoney(newItem.unitPrice * qty - discount));
         return {
           items: [
             ...state.items,
@@ -87,7 +89,7 @@ export const useCartStore = create<CartState>((set, get) => ({
             ...item,
             quantity: safeQty,
             discount,
-            lineTotal: Math.max(0, item.unitPrice * safeQty - discount)
+            lineTotal: Math.max(0, roundMoney(item.unitPrice * safeQty - discount))
           };
         }
         return item;
@@ -104,7 +106,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           return {
             ...item,
             discount: safeDiscount,
-            lineTotal: Math.max(0, item.unitPrice * item.quantity - safeDiscount)
+            lineTotal: Math.max(0, roundMoney(item.unitPrice * item.quantity - safeDiscount))
           };
         }
         return item;
@@ -157,14 +159,14 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   getSubtotal: () => {
-    return get().items.reduce((sum, item) => sum + item.lineTotal, 0);
+    return roundMoney(get().items.reduce((sum, item) => sum + item.lineTotal, 0));
   },
 
   getDiscountAmount: () => {
     const subtotal = get().getSubtotal();
     const percent = get().discountPercent;
     if (percent > 0) {
-      return Math.round(((subtotal * percent) / 100) * 100) / 100;
+      return roundMoney((subtotal * percent) / 100);
     }
     return 0;
   },
@@ -172,14 +174,14 @@ export const useCartStore = create<CartState>((set, get) => ({
   getGrandTotal: () => {
     const subtotal = get().getSubtotal();
     const discountAmount = get().getDiscountAmount();
-    return Math.max(0, Math.round((subtotal - discountAmount) * 100) / 100);
+    return Math.max(0, roundMoney(subtotal - discountAmount));
   },
 
   getChangeDue: () => {
     const grandTotal = get().getGrandTotal();
     const tendered = get().tenderedAmount;
     if (tendered > grandTotal) {
-      return Math.round((tendered - grandTotal) * 100) / 100;
+      return roundMoney(tendered - grandTotal);
     }
     return 0;
   },

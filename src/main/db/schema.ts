@@ -131,6 +131,7 @@ export interface ReturnItem {
 export interface Return {
   id: number;
   returnNo: string;
+  shiftId?: number | null;
   saleId?: number | null;
   invoiceNo: string;
   customerName?: string | null;

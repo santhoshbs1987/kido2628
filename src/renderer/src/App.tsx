@@ -53,7 +53,7 @@ export const App: React.FC = () => {
         <Header />
 
         <main className="flex-1 flex flex-col overflow-hidden relative">
-          {activePage === 'pos' && <PosPage settings={settings} />}
+          {activePage === 'pos' && <PosPage settings={settings} activeShift={activeShift} />}
           {activePage === 'products' && <ProductsPage settings={settings} />}
           {activePage === 'purchases' && <PurchasesPage />}
           {activePage === 'returns' && <ReturnsPage />}

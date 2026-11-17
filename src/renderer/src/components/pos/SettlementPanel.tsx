@@ -63,6 +63,15 @@ export const SettlementPanel: React.FC<SettlementPanelProps> = ({
       return;
     }
 
+    if (paymentMethod === 'Cash' && tenderedAmount > 0 && tenderedAmount < grandTotal) {
+      addToast({
+        type: 'warning',
+        title: 'Insufficient Cash Tendered',
+        message: `Tendered ₹${tenderedAmount.toFixed(2)} is less than Grand Total ₹${grandTotal.toFixed(2)}.`
+      });
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -145,6 +154,12 @@ export const SettlementPanel: React.FC<SettlementPanelProps> = ({
               value={discountPercent || ''}
               placeholder="0"
               onChange={(e) => setDiscountPercent(Number(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSaveAndPrint();
+                }
+              }}
               className="w-16 px-2 py-1 text-right text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
             />
             {discountAmount > 0 && (
@@ -210,6 +225,12 @@ export const SettlementPanel: React.FC<SettlementPanelProps> = ({
                 value={tenderedAmount || ''}
                 placeholder={grandTotal > 0 ? String(grandTotal) : '0'}
                 onChange={(e) => setTenderedAmount(Number(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSaveAndPrint();
+                  }
+                }}
                 className="w-24 px-2 py-1 text-right text-xs font-bold font-mono text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -258,6 +279,7 @@ export const SettlementPanel: React.FC<SettlementPanelProps> = ({
       {/* Primary Action: Save & Print */}
       <div className="pt-4 border-t border-slate-200">
         <button
+          id="saveAndPrintBtn"
           onClick={handleSaveAndPrint}
           disabled={saving || items.length === 0}
           className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"

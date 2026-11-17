@@ -344,6 +344,18 @@ export class ProductsService {
               `Cannot remove variant (${ev.size || 'One size'} / ${ev.color || 'Default'}) because it has historical sales records.`
             );
           }
+          const hasPurchases = db.prepare('SELECT id FROM purchase_items WHERE variant_id = ? LIMIT 1').get(ev.id);
+          if (hasPurchases) {
+            throw new Error(
+              `Cannot remove variant (${ev.size || 'One size'} / ${ev.color || 'Default'}) because it has historical purchase records.`
+            );
+          }
+          const hasReturns = db.prepare('SELECT id FROM return_items WHERE variant_id = ? LIMIT 1').get(ev.id);
+          if (hasReturns) {
+            throw new Error(
+              `Cannot remove variant (${ev.size || 'One size'} / ${ev.color || 'Default'}) because it has historical return records.`
+            );
+          }
           db.prepare('DELETE FROM product_variants WHERE id = ?').run(ev.id);
         }
       }
@@ -371,6 +383,22 @@ export class ProductsService {
     if (hasSales) {
       throw new Error(
         `Cannot delete product "${product.name}" (${product.sku}) because it has attached sales invoices. Deletion is blocked to preserve audit history.`
+      );
+    }
+
+    // Safeguard: Check purchase history
+    const hasPurchases = db.prepare('SELECT id FROM purchase_items WHERE product_id = ? LIMIT 1').get(id);
+    if (hasPurchases) {
+      throw new Error(
+        `Cannot delete product "${product.name}" (${product.sku}) because it has inward purchase history. Deletion is blocked to preserve audit records.`
+      );
+    }
+
+    // Safeguard: Check return history
+    const hasReturns = db.prepare('SELECT id FROM return_items WHERE product_id = ? LIMIT 1').get(id);
+    if (hasReturns) {
+      throw new Error(
+        `Cannot delete product "${product.name}" (${product.sku}) because it has attached customer return records. Deletion is blocked to preserve audit history.`
       );
     }
 

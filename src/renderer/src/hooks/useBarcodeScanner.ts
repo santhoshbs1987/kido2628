@@ -23,10 +23,16 @@ export function useBarcodeScanner({ onScan, enabled = true }: UseBarcodeScannerP
       const interval = now - lastKeyTimeRef.current;
       lastKeyTimeRef.current = now;
 
-      // Check if user is typing slowly in a regular input field other than the scan input
       const activeEl = document.activeElement as HTMLElement | null;
       const isInput = activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA';
       const isExplicitScanInput = activeEl?.id === 'barcodeScanInput';
+
+      // If a modal is open and focus is not on scan input, don't hijack
+      const isModalOpen = document.querySelector('.fixed.inset-0') !== null;
+      if (isModalOpen && !isExplicitScanInput) {
+        bufferRef.current = '';
+        return;
+      }
 
       // Scanners type at very high speeds: typically < 50ms per key
       const isScannerSpeed = interval < 60;

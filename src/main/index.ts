@@ -49,15 +49,21 @@ function createWindow(): void {
     if (isDev && devUrl && navigationUrl.startsWith(devUrl)) {
       return;
     }
-    if (navigationUrl.startsWith('file://')) {
+    const rendererFilePrefix = 'file://' + path.resolve(__dirname, '../renderer');
+    if (navigationUrl.startsWith(rendererFilePrefix)) {
       return;
     }
     event.preventDefault();
   });
 
-  // Security: disallow creation of unvetted new browser windows
+  // Security: disallow creation of unvetted new browser windows & validate protocol
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    try {
+      const parsedUrl = new URL(details.url);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+        shell.openExternal(details.url);
+      }
+    } catch (e) {}
     return { action: 'deny' };
   });
 
@@ -73,6 +79,13 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Security: deny webview attachment globally (registered once)
+  app.on('web-contents-created', (_, contents) => {
+    contents.on('will-attach-webview', (e) => {
+      e.preventDefault();
+    });
+  });
+
   // Initialize embedded SQLite database
   initDatabase();
 
@@ -93,8 +106,13 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  closeDatabase();
+  // On non-macOS, quit the application
   if (process.platform !== 'darwin') {
+    closeDatabase();
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  closeDatabase();
 });

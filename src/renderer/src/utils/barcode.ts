@@ -43,6 +43,16 @@ export function generateBarcodeSvg(value: string): string {
   }
 }
 
+export function escapeHtml(str: any): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export function generateSingleLabelHtml(params: {
   shopName: string;
   name: string;
@@ -58,20 +68,20 @@ export function generateSingleLabelHtml(params: {
   return `
     <div class="barcode-label page-break" style="width:63mm;height:34mm;padding:1.5mm;box-sizing:border-box;text-align:center;font-family:Arial,sans-serif;color:#000;background:#fff;border:1px solid #e2e8f0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always;">
       <div style="font-family:Arial, 'Microsoft YaHei', SimHei, sans-serif;font-size:10.5pt;line-height:1.1;font-weight:800;white-space:nowrap;overflow:hidden">
-        ${shopName || 'KIDO 2628'} · 基多
+        ${escapeHtml(shopName || 'KIDO 2628')} · 基多
       </div>
       <div style="font-size:8pt;line-height:1.1;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-        ${name}
+        ${escapeHtml(name)}
       </div>
-      ${category ? `<div style="font-size:7pt;line-height:1;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#334155">${category}</div>` : ''}
+      ${category ? `<div style="font-size:7pt;line-height:1;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#334155">${escapeHtml(category)}</div>` : ''}
       <div style="font-size:6.5pt;line-height:1">
-        Size: <b>${size || 'One size'}</b>${color ? ` · Colour: <b>${color}</b>` : ''}
+        Size: <b>${escapeHtml(size || 'One size')}</b>${color ? ` · Colour: <b>${escapeHtml(color)}</b>` : ''}
       </div>
       <div style="height:9mm;width:100%;flex:none">
         ${svg}
       </div>
       <div style="font:6.5pt/1 Arial,monospace;letter-spacing:0.5px;white-space:nowrap">
-        ${sku}
+        ${escapeHtml(sku)}
       </div>
       <div style="font-size:9.5pt;line-height:1.1;font-weight:bold;white-space:nowrap">
         ₹${Number(price || 0).toFixed(2)}

@@ -61,11 +61,22 @@ export class BackupService {
       }
       closeDatabase();
       const currentDbPath = getDatabasePath();
+      const walPath = `${currentDbPath}-wal`;
+      const shmPath = `${currentDbPath}-shm`;
+
       // Make backup of current first
       const recoveryPath = `${currentDbPath}.before_restore`;
       if (fs.existsSync(currentDbPath)) {
         fs.copyFileSync(currentDbPath, recoveryPath);
       }
+      // Remove stale WAL and SHM files to prevent replaying stale logs over the new database
+      if (fs.existsSync(walPath)) {
+        try { fs.unlinkSync(walPath); } catch (e) {}
+      }
+      if (fs.existsSync(shmPath)) {
+        try { fs.unlinkSync(shmPath); } catch (e) {}
+      }
+
       fs.copyFileSync(sourcePath, currentDbPath);
       initDatabase(currentDbPath);
       return { success: true };
@@ -113,8 +124,11 @@ export class BackupService {
       throw new Error('Invalid JSON format for backup restoration.');
     }
 
-    return db.transaction(() => {
-      const now = new Date().toISOString();
+    // Disable foreign keys outside the transaction to allow clean bulk restoration
+    db.pragma('foreign_keys = OFF;');
+    try {
+      return db.transaction(() => {
+        const now = new Date().toISOString();
 
       // Check if this is a legacy v1.x JSON structure
       if (jsonData.products && Array.isArray(jsonData.products) && (jsonData.lastInvoice !== undefined || jsonData.settings?.salesHistoryCleared !== undefined)) {
@@ -318,14 +332,19 @@ export class BackupService {
           );
         }
 
-        // Insert tables directly
+        // Insert tables directly with column validation & safe identifier quoting
         const insertTable = (table: string, rows: any[]) => {
           if (!Array.isArray(rows) || rows.length === 0) return;
-          const cols = Object.keys(rows[0]);
+          // Validate and filter column identifiers
+          const rawCols = Object.keys(rows[0]);
+          const cols = rawCols.filter((c) => /^[a-zA-Z0-9_]+$/.test(c));
+          if (cols.length === 0) return;
+
+          const quotedCols = cols.map((c) => `"${c}"`).join(',');
           const placeholders = cols.map(() => '?').join(',');
-          const stmt = db.prepare(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${placeholders})`);
+          const stmt = db.prepare(`INSERT INTO "${table}" (${quotedCols}) VALUES (${placeholders})`);
           for (const r of rows) {
-            stmt.run(...cols.map((c) => r[c]));
+            stmt.run(...cols.map((c) => (r[c] === undefined ? null : r[c])));
           }
         };
 
@@ -347,5 +366,8 @@ export class BackupService {
         };
       }
     })();
+    } finally {
+      db.pragma('foreign_keys = ON;');
+    }
   }
 }

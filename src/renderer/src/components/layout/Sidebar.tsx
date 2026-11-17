@@ -6,6 +6,7 @@ import {
   BarChart3,
   Truck,
   RotateCcw,
+  Users,
   Coins,
   Settings,
   Circle
@@ -25,6 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeShift }) => {
     { id: 'reports', label: 'Sales & Analytics', icon: BarChart3, shortcut: 'F3' },
     { id: 'purchases', label: 'Supplier Purchases', icon: Truck, shortcut: 'F4' },
     { id: 'returns', label: 'Returns & Exchange', icon: RotateCcw, shortcut: 'F5' },
+    { id: 'customers', label: 'Customer CRM', icon: Users, shortcut: 'F8' },
     { id: 'shifts', label: 'Till & Shifts', icon: Coins, shortcut: 'F6' },
     { id: 'settings', label: 'Settings & Backup', icon: Settings, shortcut: 'F7' }
   ];

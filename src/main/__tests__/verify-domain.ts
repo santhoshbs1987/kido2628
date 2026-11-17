@@ -199,11 +199,37 @@ async function runVerification() {
     throw new Error(`Expected total stock 24 for legacy product, got ${importedProd?.totalStock}`);
   }
 
+  // 12. Test Return Cap & Discount Proration Safeguards
+  console.log('\n--- 12. Testing Return Cap & Proration Safeguards ---');
+  const legacyLookup = ReturnsService.lookupInvoice('INV-LEGACY-1');
+  if (legacyLookup.remainingInvoiceRefund !== 499) {
+    throw new Error(`Expected remainingInvoiceRefund 499, got ${legacyLookup.remainingInvoiceRefund}`);
+  }
+  let capBlocked = false;
+  try {
+    ReturnsService.create({
+      invoiceNo: 'INV-LEGACY-1',
+      items: [{
+        saleItemId: legacyLookup.itemsEligible[0].saleItemId,
+        quantity: 1,
+        unitPrice: 499,
+        refundAmount: 9999, // Intentional excessive refund
+        restock: true
+      }]
+    });
+  } catch (err: any) {
+    capBlocked = true;
+    console.log(`✓ Excessive refund blocked: "${err.message}"`);
+  }
+  if (!capBlocked) throw new Error('Excessive return refund should have been blocked by cap safeguard.');
+
   // Cleanup test DB
   dbModule.closeDatabase();
   if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
+  if (fs.existsSync(testDbPath + '-wal')) fs.unlinkSync(testDbPath + '-wal');
+  if (fs.existsSync(testDbPath + '-shm')) fs.unlinkSync(testDbPath + '-shm');
 
-  console.log('\n🎉 ALL 11 VERIFICATION TEST SUITES PASSED FLAWLESSLY! 🎉\n');
+  console.log('\n🎉 ALL 12 VERIFICATION TEST SUITES PASSED FLAWLESSLY! 🎉\n');
 }
 
 runVerification().catch((err) => {

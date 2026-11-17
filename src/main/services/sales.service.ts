@@ -2,6 +2,8 @@ import { getDb } from '../db/database';
 import { Sale, SaleItem } from '../db/schema';
 import { CustomersService } from './customers.service';
 
+export const roundMoney = (num: number): number => Math.round((num + Number.EPSILON) * 100) / 100;
+
 export interface CreateSaleInput {
   customerId?: number | null;
   customerName?: string | null;
@@ -28,16 +30,8 @@ export interface CreateSaleInput {
 export class SalesService {
   static getNextInvoiceNo(): string {
     const db = getDb();
-    // Find the maximum numeric part from existing invoices
-    const rows = db.prepare('SELECT invoice_no FROM sales ORDER BY id DESC LIMIT 50').all() as { invoice_no: string }[];
-    let maxNum = 1000;
-    for (const r of rows) {
-      const match = r.invoice_no.match(/(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
-    }
+    const row = db.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(invoice_no, 5) AS INTEGER)), 1000) as max_num FROM sales WHERE invoice_no LIKE 'INV-%'").get() as any;
+    const maxNum = Math.max(1000, Number(row?.max_num) || 1000);
     return `INV-${maxNum + 1}`;
   }
 
@@ -149,14 +143,18 @@ export class SalesService {
       const discountPercent = Math.max(0, Math.min(100, Number(input.discountPercent) || 0));
       let discountAmount = Math.max(0, Number(input.discountAmount) || 0);
       if (discountPercent > 0) {
-        discountAmount = Math.round(((subtotal * discountPercent) / 100) * 100) / 100;
+        discountAmount = roundMoney((subtotal * discountPercent) / 100);
       }
-      const grandTotal = Math.max(0, Math.round((subtotal - discountAmount) * 100) / 100);
+      const grandTotal = Math.max(0, roundMoney(subtotal - discountAmount));
 
       const tenderedAmount = Math.max(0, Number(input.tenderedAmount) || 0);
+      if (input.paymentMethod === 'Cash' && tenderedAmount > 0 && tenderedAmount < grandTotal) {
+        throw new Error(`Tendered cash (₹${tenderedAmount.toFixed(2)}) is less than Grand Total (₹${grandTotal.toFixed(2)}).`);
+      }
+
       let changeDue = 0;
       if (input.paymentMethod === 'Cash' && tenderedAmount > grandTotal) {
-        changeDue = Math.round((tenderedAmount - grandTotal) * 100) / 100;
+        changeDue = roundMoney(tenderedAmount - grandTotal);
       }
 
       // Customer auto-lookup or auto-save
@@ -266,7 +264,7 @@ export class SalesService {
         total_card_sales = total_card_sales + ?,
         gross_sales = gross_sales + ?,
         net_sales = net_sales + ?,
-        expected_cash = opening_float + total_cash_sales + ?
+        expected_cash = opening_float + (total_cash_sales + ?) - total_returns_refunded
       WHERE id = ?
     `).run(cashInc, upiInc, cardInc, amount, amount, cashInc, openShift.id);
   }

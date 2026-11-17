@@ -1,27 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useCartStore } from '../../stores/cartStore';
 import { User, Phone, X } from 'lucide-react';
 
 export const CustomerLookup: React.FC = () => {
   const { customerName, customerMobile, setCustomer } = useCartStore();
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const debounceTimerRef = useRef<any>(null);
 
-  const handleMobileChange = async (mobileVal: string) => {
+  const handleMobileChange = (mobileVal: string) => {
     setCustomer({ name: customerName, mobile: mobileVal });
 
+    clearTimeout(debounceTimerRef.current);
     if (mobileVal.trim().length >= 3) {
-      try {
-        const res = await window.api.customers.getAll(mobileVal.trim());
-        if (res.success && res.data) {
-          setSuggestions(res.data);
-          const exact = res.data.find((c: any) => c.mobile === mobileVal.trim());
-          if (exact) {
-            setCustomer({ id: exact.id, name: exact.name, mobile: exact.mobile });
+      debounceTimerRef.current = setTimeout(async () => {
+        try {
+          const res = await window.api.customers.getAll(mobileVal.trim());
+          if (res.success && res.data) {
+            setSuggestions(res.data);
+            const exact = res.data.find((c: any) => c.mobile === mobileVal.trim());
+            if (exact) {
+              setCustomer({ id: exact.id, name: exact.name, mobile: exact.mobile });
+            }
           }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
-      }
+      }, 150);
     } else {
       setSuggestions([]);
     }

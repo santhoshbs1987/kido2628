@@ -6,9 +6,10 @@ import { Product } from '../../types';
 
 interface ScanBarProps {
   onOpenVariantPicker: (product: Product) => void;
+  onEmptyEnter?: () => void;
 }
 
-export const ScanBar: React.FC<ScanBarProps> = ({ onOpenVariantPicker }) => {
+export const ScanBar: React.FC<ScanBarProps> = ({ onOpenVariantPicker, onEmptyEnter }) => {
   const [query, setQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,7 +23,12 @@ export const ScanBar: React.FC<ScanBarProps> = ({ onOpenVariantPicker }) => {
 
   const handleProcessBarcode = async (barcodeVal: string) => {
     const clean = barcodeVal.trim();
-    if (!clean) return;
+    if (!clean) {
+      if (onEmptyEnter) {
+        onEmptyEnter();
+      }
+      return;
+    }
 
     try {
       setLoading(true);

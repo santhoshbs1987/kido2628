@@ -15,6 +15,7 @@ export const ReturnsPage: React.FC = () => {
   const [searchInvoice, setSearchInvoice] = useState<string>('');
   const [validatedSale, setValidatedSale] = useState<Sale | null>(null);
   const [eligibleItems, setEligibleItems] = useState<any[]>([]);
+  const [remainingRefund, setRemainingRefund] = useState<number>(0);
   const [selectedItems, setSelectedItems] = useState<
     Record<number, { quantity: number; restock: boolean; refundAmount: number }>
   >({});
@@ -45,6 +46,7 @@ export const ReturnsPage: React.FC = () => {
       if (res.success && res.data) {
         setValidatedSale(res.data.sale);
         setEligibleItems(res.data.itemsEligible);
+        setRemainingRefund(res.data.remainingInvoiceRefund ?? res.data.sale.grandTotal);
 
         // Prepopulate empty selection map
         const initialSelected: Record<number, { quantity: number; restock: boolean; refundAmount: number }> = {};
@@ -331,6 +333,19 @@ export const ReturnsPage: React.FC = () => {
                 <div className="font-semibold text-slate-700">
                   Customer: {validatedSale.customerName || 'Walk-in'} ({validatedSale.customerMobile || 'N/A'})
                 </div>
+              </div>
+              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-blue-200/60">
+                <span className="text-slate-600">
+                  Original Grand Total: <b className="font-mono text-slate-800">₹{validatedSale.grandTotal.toFixed(2)}</b>
+                  {validatedSale.discountAmount > 0 && (
+                    <span className="text-rose-600 text-[10px] ml-1">
+                      (Includes ₹{validatedSale.discountAmount.toFixed(2)} Bill Discount)
+                    </span>
+                  )}
+                </span>
+                <span className="font-bold text-emerald-800">
+                  Remaining Refundable Cap: <b className="font-mono">₹{remainingRefund.toFixed(2)}</b>
+                </span>
               </div>
             </div>
           )}

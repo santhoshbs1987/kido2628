@@ -9,7 +9,18 @@ import { CustomersService } from './customers.service';
 function sanitizeCell(val: any): any {
   if (typeof val === 'string') {
     const trimmed = val.trim();
-    if (trimmed.startsWith('=') || trimmed.startsWith('+') || trimmed.startsWith('-') || trimmed.startsWith('@') || trimmed.startsWith('\t') || trimmed.startsWith('\r')) {
+    // Allow plain valid numbers (e.g. "-50.00") without escaping
+    if (trimmed !== '' && !isNaN(Number(trimmed)) && !trimmed.startsWith('=') && !trimmed.startsWith('@')) {
+      return val;
+    }
+    if (
+      trimmed.startsWith('=') ||
+      trimmed.startsWith('+') ||
+      trimmed.startsWith('-') ||
+      trimmed.startsWith('@') ||
+      trimmed.startsWith('\t') ||
+      trimmed.startsWith('\r')
+    ) {
       return `'${val}`;
     }
   }

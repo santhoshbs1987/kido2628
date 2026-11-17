@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useUiStore } from '../stores/uiStore';
+import { useCartStore } from '../stores/cartStore';
 
 export function useKeyboardShortcuts(): void {
   const setActivePage = useUiStore((state) => state.setActivePage);
@@ -12,7 +13,16 @@ export function useKeyboardShortcuts(): void {
       switch (e.key) {
         case 'F1':
           e.preventDefault();
-          setActivePage('pos');
+          if (useUiStore.getState().activePage === 'pos') {
+            const cartItems = useCartStore.getState().items;
+            if (cartItems.length > 0) {
+              if (window.confirm('Clear active cart to start a new bill?')) {
+                useCartStore.getState().clearCart();
+              }
+            }
+          } else {
+            setActivePage('pos');
+          }
           break;
         case 'F2':
           e.preventDefault();
@@ -37,6 +47,10 @@ export function useKeyboardShortcuts(): void {
         case 'F7':
           e.preventDefault();
           setActivePage('settings');
+          break;
+        case 'F8':
+          e.preventDefault();
+          setActivePage('customers');
           break;
         default:
           break;

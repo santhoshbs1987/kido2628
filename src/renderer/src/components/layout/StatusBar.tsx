@@ -48,6 +48,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({ lowStockCount }) => {
           <strong className="text-slate-300 font-mono">F3</strong> Reports
         </span>
         <span>
+          <strong className="text-slate-300 font-mono">F8</strong> Cust
+        </span>
+        <span>
           <strong className="text-slate-300 font-mono">Esc</strong> Cancel
         </span>
       </div>
