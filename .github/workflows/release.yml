@@ -1,0 +1,112 @@
+name: Build & Release Desktop Installers
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Release notes or summary'
+        required: false
+        default: 'Production release for KIDO 2628 Retail Desktop POS'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Package Desktop App (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+            artifacts: dist/*.exe
+          - os: macos-latest
+            target: mac
+            artifacts: dist/*.dmg
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Domain & Security Test Suite
+        run: npm test
+
+      - name: Compile Application (Vite)
+        run: npm run build
+
+      - name: Build Windows Executables (NSIS & Portable)
+        if: matrix.target == 'win'
+        run: npx electron-builder --win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build macOS DMG (Apple Silicon & Intel)
+        if: matrix.target == 'mac'
+        run: npx electron-builder --mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kido2628-retail-${{ matrix.target }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
+
+  publish-github-release:
+    name: Publish Release to GitHub
+    needs: [build-release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: kido2628-retail-win
+          path: release-assets/
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: kido2628-retail-mac
+          path: release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## KIDO 2628 Retail POS & Inventory System
+            **Automated Production Desktop Release**
+
+            ### Supported Platforms:
+            - **Windows (10 / 11)**: Included NSIS Installer and Standalone Portable `.exe`
+            - **macOS (Apple Silicon & Intel)**: Standalone `.dmg`
+
+            ### Verification & Integrity:
+            - Offline-first SQLite persistence with zero cloud dependencies.
+            - Full ACID transaction integrity and automatic daily snapshots.
+            - Silent 72mm thermal receipt and 63mm x 34mm sticky label roll printing.
+            - All domain and security test suites verified green before compilation.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
