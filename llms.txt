@@ -1,0 +1,26 @@
+# KIDO 2628 Retail App - Desktop POS & Inventory
+
+> Modern, production-grade, offline-first Desktop POS & Inventory Management system for children's fashion retail, built with Electron, TypeScript, React 18, Tailwind CSS, and local SQLite with ACID transactions.
+
+## Architecture & Core Tech Stack
+- Desktop Runtime: Electron v33 (LTS) with electron-vite
+- Core Language: TypeScript (strict mode enabled across all targets)
+- Persistence Layer: Embedded SQLite using better-sqlite3 with WAL mode, foreign keys, and synchronous normal
+- Inter-Process Communication: Strongly typed context bridge with Main-process Zod validation
+- User Interface: React 18, Tailwind CSS v3, Lucide React icons, Zustand state stores
+- Hardware Engines: Silent ESC/POS 72mm/80mm thermal receipt printing, SVG Code-128 63x34mm barcode label printing, <60ms burst hardware scanner listener
+
+## Key Documentation Files
+- AI System Guide: [docs/AI_DOCUMENTATION.md](docs/AI_DOCUMENTATION.md)
+- Architectural Blueprint: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Database Schema & Migrations: [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)
+- IPC Bridge & Contracts: [docs/IPC_CONTRACTS.md](docs/IPC_CONTRACTS.md)
+- Hardware & Printing Integration: [docs/HARDWARE_INTEGRATION.md](docs/HARDWARE_INTEGRATION.md)
+- Cursor & AI Coding Rules: [.cursorrules](.cursorrules)
+
+## Developer & Verification Commands
+- Test Suite: npm test (runs 12-suite domain verification under Electron runtime)
+- Typecheck: npm run typecheck (validates both tsconfig.node.json and tsconfig.web.json)
+- Bundle Build: npm run build (electron-vite production bundle)
+- Windows Packaging: npm run build:win (NSIS and Portable .exe)
+- macOS Packaging: npm run build:mac (.dmg and unpacked .app)

@@ -1,0 +1,43 @@
+# KIDO 2628 Desktop POS & Inventory - AI Assistant Instructions (.cursorrules)
+
+You are an expert Principal Electron Desktop Architect and Senior Full-Stack Engineer working on "KIDO 2628 Retail App".
+
+## 1. Core Architecture & Stack
+- **Desktop Shell**: Electron (v33 LTS) + `electron-vite`
+- **Language**: TypeScript with strict mode enabled (`strict: true`) across Main, Preload, and Renderer.
+- **Database**: Local embedded SQLite using `better-sqlite3` in WAL mode (`PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;`).
+- **Data Location**: SQLite runs STRICTLY in the Electron Main process (`src/main/db/`).
+- **Frontend**: React 18, Tailwind CSS v3, Lucide React icons, Zustand (Cart & UI state).
+- **IPC Architecture**: Type-safe context bridge (`window.api`), strict request validation with **Zod** in the Main process before any database mutation.
+
+## 2. Invariants & Security Rules (NEVER VIOLATE)
+1. **Never use Node.js APIs in Renderer**: `fs`, `path`, `child_process`, and `better-sqlite3` must NEVER be imported in `src/renderer`.
+2. **Always enforce ACID Transactions**: All multi-step mutations (sales, inward intake, returns, stock adjustments, database restores) MUST run inside `db.transaction(() => { ... })()`.
+3. **Always Validate with Zod**: Every IPC write channel in `src/main/ipc/handlers.ts` MUST validate payloads using `src/main/ipc/schemas.ts`.
+4. **Never Leak IEEE-754 Floating Point Pennies**: Always round monetary calculations using:
+   `const roundMoney = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;`
+5. **Prorate Bill Discounts on Returns**: Returns must prorate bill discounts (`effectiveUnitPrice = lineTotal / qty * (grandTotal / subtotal)`) and cap refunds at `remainingInvoiceRefund = grandTotal - previousRefunds`.
+6. **SQLite WAL Restore Safety**: When replacing `.sqlite` binary database files, always remove or archive the `-wal` and `-shm` auxiliary files to prevent SQLite journal replay corruption.
+7. **HTML Entity Escaping in Print Templates**: Always wrap user-facing and catalog text in `escapeHtml()` when generating thermal receipt or barcode label HTML.
+8. **Native Addon ABI**: When writing tests or scripts touching `better-sqlite3`, execute with `ELECTRON_RUN_AS_NODE=1 electron` to match Electron's native ABI (`NODE_MODULE_VERSION 130`).
+
+## 3. Essential File Map
+- **Main Entry & Security**: `src/main/index.ts`
+- **Database Connection & Pragmas**: `src/main/db/database.ts`
+- **SQL Migrations**: `src/main/db/migrations.ts`
+- **Database Schema Interfaces**: `src/main/db/schema.ts`
+- **IPC Handlers**: `src/main/ipc/handlers.ts`
+- **Zod Validation Schemas**: `src/main/ipc/schemas.ts`
+- **Preload Bridge**: `src/preload/index.ts` & `src/preload/index.d.ts`
+- **Cart State (Zustand)**: `src/renderer/src/stores/cartStore.ts`
+- **UI & Navigation State**: `src/renderer/src/stores/uiStore.ts`
+- **Hardware Scanner Hook**: `src/renderer/src/hooks/useBarcodeScanner.ts`
+- **Keyboard Shortcuts**: `src/renderer/src/hooks/useKeyboardShortcuts.ts`
+- **Barcode SVG Generator**: `src/renderer/src/utils/barcode.ts`
+- **Verification Tests**: `src/main/__tests__/verify-domain.ts`
+
+## 4. Common Commands
+- Run Verification Tests: `npm test`
+- Typecheck Node & Web: `npm run typecheck`
+- Production Build: `npm run build`
+- Dev Server: `npm run dev`
