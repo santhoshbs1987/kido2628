@@ -131,10 +131,10 @@ export class SettingsService {
         desc: 'Thermal POS Receipt Printer (72mm / 80mm Roll)'
       };
     }
-    if (/tsc|zebra|label|barcode|godex|argox|gx420|zd220|te244/i.test(lower)) {
+    if (/4b|tsc|zebra|label|barcode|godex|argox|gx420|zd220|te244|2023pa|2054a/i.test(lower)) {
       return {
         type: 'LABEL_PRINTER',
-        desc: 'Dedicated Barcode Sticker Printer (63mm × 34mm Roll)'
+        desc: 'Direct Thermal Barcode & Label Printer (4BARCODE / TSC / Zebra)'
       };
     }
     return {
