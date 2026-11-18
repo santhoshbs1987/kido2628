@@ -253,6 +253,20 @@ export function runMigrations(db: Database.Database): void {
           // Column may already exist
         }
       }
+    },
+    {
+      version: 4,
+      name: 'add_print_and_label_formats_to_settings',
+      run: (db) => {
+        try {
+          db.exec(`
+            ALTER TABLE settings ADD COLUMN print_format TEXT NOT NULL DEFAULT 'A4_INVOICE';
+            ALTER TABLE settings ADD COLUMN label_format TEXT NOT NULL DEFAULT 'ROLL_63X34';
+          `);
+        } catch (e: any) {
+          // Columns may already exist
+        }
+      }
     }
   ];
 

@@ -49,7 +49,8 @@ export const api = {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     update: (input: any) => ipcRenderer.invoke('settings:update', input),
-    getPrinters: () => ipcRenderer.invoke('settings:getPrinters')
+    getPrinters: () => ipcRenderer.invoke('settings:getPrinters'),
+    autoDetectPrinters: () => ipcRenderer.invoke('settings:autoDetectPrinters')
   },
   backup: {
     exportJson: () => ipcRenderer.invoke('backup:exportJson'),
@@ -64,8 +65,9 @@ export const api = {
     customers: () => ipcRenderer.invoke('export:customers')
   },
   print: {
-    receipt: (sale: any, options?: { silent?: boolean; deviceName?: string }) => ipcRenderer.invoke('print:receipt', { sale, options }),
-    labels: (html: string, options?: { silent?: boolean; deviceName?: string }) => ipcRenderer.invoke('print:labels', { html, options })
+    receipt: (sale: any, options?: { silent?: boolean; deviceName?: string; format?: string }) => ipcRenderer.invoke('print:receipt', { sale, options }),
+    labels: (html: string, options?: { silent?: boolean; deviceName?: string; format?: string }) => ipcRenderer.invoke('print:labels', { html, options }),
+    testPrint: (printerName?: string, type?: 'receipt' | 'label') => ipcRenderer.invoke('print:testPrint', { printerName, type })
   }
 };
 

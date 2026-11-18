@@ -170,6 +170,8 @@ export interface ShopSettings {
   upiName: string;
   receiptPrinter: string;
   labelPrinter: string;
+  printFormat: 'THERMAL_72MM' | 'A4_INVOICE' | 'A5_BILL';
+  labelFormat: 'ROLL_63X34' | 'A4_SHEET_24';
   autoBackupEnabled: boolean;
   backupPath: string;
   lowStockThreshold: number;

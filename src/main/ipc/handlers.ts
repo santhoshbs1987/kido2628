@@ -354,6 +354,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  ipcMain.handle('settings:autoDetectPrinters', async () => {
+    try {
+      const data = await SettingsService.autoDetectAndConfigure(mainWindow);
+      return { success: true, data };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Backups & Exports
   ipcMain.handle('backup:exportJson', async () => {
     try {
@@ -528,6 +537,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('print:labels', async (_, { html, options }) => {
     try {
       const data = await PrintService.printBarcodeLabels(html, options);
+      return { success: data.success, error: data.error };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('print:testPrint', async (_, { printerName, type }) => {
+    try {
+      const data = await PrintService.testPrint(printerName, type);
       return { success: data.success, error: data.error };
     } catch (err: any) {
       return { success: false, error: err.message };

@@ -116,6 +116,8 @@ export const UpdateSettingsSchema = z.object({
   upiName: z.string().optional(),
   receiptPrinter: z.string().optional(),
   labelPrinter: z.string().optional(),
+  printFormat: z.enum(['THERMAL_72MM', 'A4_INVOICE', 'A5_BILL']).optional(),
+  labelFormat: z.enum(['ROLL_63X34', 'A4_SHEET_24']).optional(),
   autoBackupEnabled: z.boolean().optional(),
   backupPath: z.string().optional(),
   lowStockThreshold: z.number().int().min(0).optional()
